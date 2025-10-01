@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.testing'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+dependencies {
+    // Cucumber dependencies
+    testImplementation 'io.cucumber:cucumber-java:7.15.0'
+    testImplementation 'io.cucumber:cucumber-junit:7.15.0'
+
+    // JUnit
+    testImplementation 'junit:junit:4.13.2'
+
+    // Hamcrest
+    testImplementation 'org.hamcrest:hamcrest:2.2'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    implementation 'ch.qos.logback:logback-classic:1.4.14'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    testCompileOnly 'org.projectlombok:lombok:1.18.30'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+}
+
+test {
+    useJUnit()
+    testLogging {
+        events = ["passed", "skipped", "failed"]
+        exceptionFormat = "full"
+    }
+}
+
+task cucumber(type: Test) {
+    useJUnit()
+    include '**/TestRunner.class'
+    testLogging {
+        events = ["passed", "skipped", "failed", "standardOut", "standardError"]
+        exceptionFormat = "full"
+        showStandardStreams = true
+        showExceptions = true
+        showStackTraces = true
+        showCauses = true
+    }
+    systemProperties = System.properties
+    outputs.upToDateWhen { false }
+}
