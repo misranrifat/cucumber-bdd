@@ -32,4 +32,25 @@
 
     <!-- Add your custom exclusions below this line -->
 
+    <!-- Low-priority warnings in test code - acceptable for testing purposes -->
+    <Match>
+        <Class name="com.testing.steps.CalculatorSteps"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+    <Match>
+        <Class name="com.testing.steps.CalculatorSteps"/>
+        <Bug pattern="IMC_IMMATURE_CLASS_NO_TOSTRING"/>
+    </Match>
+
+    <Match>
+        <Class name="com.testing.steps.CalculatorSteps"/>
+        <Bug pattern="UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+    </Match>
+
+    <Match>
+        <Class name="com.testing.config.Calculator"/>
+        <Bug pattern="WEM_WEAK_EXCEPTION_MESSAGING"/>
+    </Match>
+
 </FindBugsFilter>
