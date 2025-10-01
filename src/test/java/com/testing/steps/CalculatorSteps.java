@@ -1,6 +1,6 @@
 package com.testing.steps;
 
-import com.testing.calculator.Calculator;
+import com.testing.config.Calculator;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;

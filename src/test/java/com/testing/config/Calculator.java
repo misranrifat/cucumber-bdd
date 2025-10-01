@@ -1,4 +1,4 @@
-package com.testing.calculator;
+package com.testing.config;
 
 import lombok.NoArgsConstructor;
 
