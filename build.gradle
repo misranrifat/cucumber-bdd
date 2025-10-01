@@ -1,5 +1,7 @@
 plugins {
     id 'java'
+    id 'org.owasp.dependencycheck' version '10.0.4'
+    id 'com.github.spotbugs' version '6.0.24'
 }
 
 group = 'com.testing'
@@ -40,6 +42,10 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
     testCompileOnly 'org.projectlombok:lombok:1.18.30'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // SpotBugs and FindSecBugs for security analysis
+    spotbugsPlugins 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.13.0'
+    spotbugsPlugins 'com.mebigfatguy.sb-contrib:sb-contrib:7.6.4'
 }
 
 test {
@@ -63,4 +69,54 @@ task cucumber(type: Test) {
     }
     systemProperties = System.properties
     outputs.upToDateWhen { false }
+}
+
+// OWASP Dependency-Check Configuration
+dependencyCheck {
+    formats = ['HTML', 'JSON', 'XML', 'SARIF']
+    outputDirectory = "${buildDir}/reports/dependency-check"
+
+    // Fail build if CVSS score >= 7 (High or Critical vulnerabilities)
+    failBuildOnCVSS = 7.0
+
+    // Suppress false positives if needed
+    suppressionFile = 'config/dependency-check-suppressions.xml'
+
+    // Enable additional analyzers
+    analyzers {
+        assemblyEnabled = false
+        nuspecEnabled = false
+        nodeEnabled = false
+    }
+
+    // NVD API configuration (optional but recommended for faster scans)
+    nvd {
+        apiKey = System.getenv('NVD_API_KEY') ?: ''
+        delay = 0
+    }
+}
+
+// SpotBugs Configuration
+spotbugs {
+    ignoreFailures = false
+    effort = 'max'
+    reportLevel = 'low'
+    excludeFilter = file('config/spotbugs-exclude.xml')
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask) {
+    reports {
+        xml {
+            required = true
+            outputLocation = file("${buildDir}/reports/spotbugs/spotbugs.xml")
+        }
+        html {
+            required = true
+            outputLocation = file("${buildDir}/reports/spotbugs/spotbugs.html")
+        }
+        sarif {
+            required = true
+            outputLocation = file("${buildDir}/reports/spotbugs/spotbugs.sarif")
+        }
+    }
 }

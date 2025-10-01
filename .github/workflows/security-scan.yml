@@ -1,0 +1,191 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  security-scan:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Validate Gradle wrapper for security
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      # Step 3: Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: "gradle"
+
+      # Step 4: Grant execute permission for gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Step 5: Setup Gradle for caching and faster builds
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          cache-write-only: false
+
+      # Step 6: Build project (compile all code before security scans)
+      - name: Build project
+        run: ./gradlew clean build -x test
+        continue-on-error: false
+
+      # Step 7: Run OWASP Dependency-Check (SCA - Software Composition Analysis)
+      - name: OWASP Dependency Check
+        run: ./gradlew dependencyCheckAnalyze --info
+        continue-on-error: true
+        env:
+          # Optional: Add NVD API key for faster vulnerability database updates
+          # Get your key from: https://nvd.nist.gov/developers/request-an-api-key
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+      # Step 8: Run SpotBugs with FindSecBugs (SAST - Static Application Security Testing)
+      - name: SpotBugs Security Analysis
+        run: ./gradlew spotbugsMain spotbugsTest --continue
+        continue-on-error: true
+
+      # Step 9: Install Trivy vulnerability scanner
+      - name: Install Trivy
+        run: |
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      # Step 10: Run Trivy filesystem scan
+      - name: Trivy Filesystem Scan
+        run: |
+          trivy fs \
+            --format sarif \
+            --output build/reports/trivy-fs.sarif \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            .
+        continue-on-error: true
+
+      # Step 11: Run Trivy configuration scan
+      - name: Trivy Configuration Scan
+        run: |
+          trivy config \
+            --format sarif \
+            --output build/reports/trivy-config.sarif \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            .
+        continue-on-error: true
+
+      # Step 12: Upload OWASP Dependency-Check report
+      - name: Upload Dependency-Check Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: build/reports/dependency-check/
+          retention-days: 30
+
+      # Step 13: Upload SpotBugs report
+      - name: Upload SpotBugs Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotbugs-report
+          path: build/reports/spotbugs/
+          retention-days: 30
+
+      # Step 14: Upload Trivy reports
+      - name: Upload Trivy Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports
+          path: build/reports/trivy-*.sarif
+          retention-days: 30
+
+      # Step 15: Upload SpotBugs SARIF to GitHub Security tab
+      - name: Upload SpotBugs SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: build/reports/spotbugs/spotbugs.sarif
+          category: spotbugs
+        continue-on-error: true
+
+      # Step 16: Upload Trivy Filesystem SARIF to GitHub Security tab
+      - name: Upload Trivy Filesystem SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: build/reports/trivy-fs.sarif
+          category: trivy-filesystem
+        continue-on-error: true
+
+      # Step 17: Upload Trivy Config SARIF to GitHub Security tab
+      - name: Upload Trivy Config SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: build/reports/trivy-config.sarif
+          category: trivy-config
+        continue-on-error: true
+
+      # Step 18: Generate security summary
+      - name: Generate Security Summary
+        if: always()
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Scans Completed:" >> $GITHUB_STEP_SUMMARY
+          echo "- OWASP Dependency-Check (Software Composition Analysis)" >> $GITHUB_STEP_SUMMARY
+          echo "- SpotBugs with FindSecBugs (Static Application Security Testing)" >> $GITHUB_STEP_SUMMARY
+          echo "- Trivy Filesystem Scan (Vulnerability Scanning)" >> $GITHUB_STEP_SUMMARY
+          echo "- Trivy Configuration Scan (IaC Security)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Reports Available:" >> $GITHUB_STEP_SUMMARY
+          echo "- Check the 'Artifacts' section for detailed reports" >> $GITHUB_STEP_SUMMARY
+          echo "- View SARIF results in the 'Security' tab" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Security findings with HIGH or CRITICAL severity should be addressed promptly." >> $GITHUB_STEP_SUMMARY
+
+      # Step 19: Check for critical vulnerabilities and fail if found
+      - name: Check for Critical Vulnerabilities
+        if: always()
+        run: |
+          echo "Checking for critical vulnerabilities..."
+
+          # Check OWASP Dependency-Check results
+          if [ -f "build/reports/dependency-check/dependency-check-report.json" ]; then
+            CRITICAL_DEPS=$(jq '[.dependencies[].vulnerabilities[]? | select(.severity == "CRITICAL")] | length' build/reports/dependency-check/dependency-check-report.json || echo "0")
+            HIGH_DEPS=$(jq '[.dependencies[].vulnerabilities[]? | select(.severity == "HIGH")] | length' build/reports/dependency-check/dependency-check-report.json || echo "0")
+            echo "OWASP Dependency-Check: $CRITICAL_DEPS critical, $HIGH_DEPS high severity vulnerabilities"
+
+            if [ "$CRITICAL_DEPS" -gt 0 ]; then
+              echo "::error::Found $CRITICAL_DEPS critical vulnerabilities in dependencies. Please review the Dependency-Check report."
+              exit 1
+            fi
+          fi
+
+          echo "Security scan completed. Please review all reports for findings."

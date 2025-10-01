@@ -1,0 +1,57 @@
+version: 2
+updates:
+  # Enable Gradle dependency updates
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "freedom"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Group updates for better PR management
+    groups:
+      test-dependencies:
+        patterns:
+          - "io.cucumber:*"
+          - "junit:*"
+          - "org.hamcrest:*"
+        update-types:
+          - "minor"
+          - "patch"
+      security-dependencies:
+        patterns:
+          - "com.h3xstream.findsecbugs:*"
+          - "com.github.spotbugs:*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Allow both direct and indirect dependency updates
+    allow:
+      - dependency-type: "all"
+
+  # Enable GitHub Actions workflow updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "freedom"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

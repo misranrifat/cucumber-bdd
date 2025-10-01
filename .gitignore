@@ -28,3 +28,8 @@ test-output/
 
 # Logs
 *.log
+
+# Security scan reports
+build/reports/
+.dependency-check/
+dependency-check-data/
