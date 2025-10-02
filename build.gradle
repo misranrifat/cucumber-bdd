@@ -51,8 +51,25 @@ test {
 }
 
 task cucumber(type: Test) {
+    description = 'Runs Cucumber BDD tests'
+    group = 'verification'
+
     useJUnit()
-    include '**/TestRunner.class'
+    shouldRunAfter test
+
+    // Ensure test classes are compiled
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    // Include only TestRunner class
+    include '**/TestRunner*'
+
+    // Pass system properties to the test JVM
+    systemProperties = System.properties
+
+    // Force tests to run every time (disable caching)
+    outputs.upToDateWhen { false }
+
     testLogging {
         events = ["passed", "skipped", "failed", "standardOut", "standardError"]
         exceptionFormat = "full"
@@ -61,6 +78,4 @@ task cucumber(type: Test) {
         showStackTraces = true
         showCauses = true
     }
-    systemProperties = System.properties
-    outputs.upToDateWhen { false }
 }
